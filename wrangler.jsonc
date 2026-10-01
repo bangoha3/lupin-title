@@ -5,5 +5,11 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS"
-  }
+  },
+  "kv_namespaces": [
+    {
+      "binding": "LUPIN_TITLES",
+      "id": "f6e6705914aa410281a3826fea4de4a7"
+    }
+  ]
 }
