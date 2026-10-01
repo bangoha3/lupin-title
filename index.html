@@ -180,7 +180,7 @@ function typeSound(){
 
   osc.frequency.value = 120;
 
-  gain.gain.setValueAtTime(.13,audioCtx.currentTime);
+  gain.gain.setValueAtTime(.38,audioCtx.currentTime);
 
   gain.gain.exponentialRampToValueAtTime(
 
@@ -216,7 +216,7 @@ function finalSound(){
 
     const t=audioCtx.currentTime+i*.045;
 
-    gain.gain.setValueAtTime(.12,t);
+    gain.gain.setValueAtTime(.32,t);
 
     gain.gain.exponentialRampToValueAtTime(.001,t+.55);
 
@@ -292,11 +292,21 @@ async function play(){
 
 }
 
-document.body.addEventListener("click",play);
-
-document.body.addEventListener("touchend",(e)=>{
+document.body.addEventListener("pointerdown", async (e)=>{
 
   e.preventDefault();
+
+  if(!audioCtx){
+
+    initAudio();
+
+  }
+
+  if(audioCtx.state==="suspended"){
+
+    await audioCtx.resume();
+
+  }
 
   play();
 
@@ -307,5 +317,3 @@ document.body.addEventListener("touchend",(e)=>{
 </body>
 
 </html>
-
-<!-- Cloudflare deploy trigger -->
