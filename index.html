@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<title>ルパン・タイトル</title>
+
+<style>
+
+html,body{
+
+  margin:0;
+
+  padding:0;
+
+  width:100%;
+
+  height:100%;
+
+  background:#000;
+
+  overflow:hidden;
+
+}
+
+body{
+
+  display:flex;
+
+  justify-content:center;
+
+  align-items:center;
+
+  font-family:
+
+    "Hiragino Mincho ProN",
+
+    "Yu Mincho",
+
+    serif;
+
+  color:white;
+
+  cursor:pointer;
+
+  -webkit-user-select:none;
+
+  user-select:none;
+
+}
+
+#screen{
+
+  position:fixed;
+
+  inset:0;
+
+  background:#000;
+
+  display:flex;
+
+  justify-content:center;
+
+  align-items:center;
+
+}
+
+#title{
+
+  color:#fff;
+
+  font-size:clamp(32px,8vw,90px);
+
+  font-weight:900;
+
+  line-height:1.45;
+
+  letter-spacing:.05em;
+
+  text-align:center;
+
+  padding:30px;
+
+  white-space:pre-wrap;
+
+  text-shadow:
+
+    0 0 2px #fff,
+
+    2px 2px 0 #222;
+
+}
+
+#start{
+
+  position:fixed;
+
+  inset:0;
+
+  display:flex;
+
+  justify-content:center;
+
+  align-items:center;
+
+  color:#aaa;
+
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+
+  font-size:18px;
+
+  letter-spacing:.15em;
+
+}
+
+.flash{
+
+  animation:flash .18s ease-out;
+
+}
+
+@keyframes flash{
+
+  0%{background:#fff;}
+
+  100%{background:#000;}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="screen">
+
+  <div id="title"></div>
+
+</div>
+
+<div id="start">
+
+  TAP TO START
+
+</div>
+
+<script>
+
+const message = "誕生日月初日、\n太客あらわる！";
+
+const title = document.getElementById("title");
+
+const start = document.getElementById("start");
+
+const screen = document.getElementById("screen");
+
+let running = false;
+
+let audioCtx;
+
+function initAudio(){
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+}
+
+function typeSound(){
+
+  const osc = audioCtx.createOscillator();
+
+  const gain = audioCtx.createGain();
+
+  osc.type = "square";
+
+  osc.frequency.value = 120;
+
+  gain.gain.setValueAtTime(.13,audioCtx.currentTime);
+
+  gain.gain.exponentialRampToValueAtTime(
+
+    .001,
+
+    audioCtx.currentTime+.045
+
+  );
+
+  osc.connect(gain);
+
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+
+  osc.stop(audioCtx.currentTime+.05);
+
+}
+
+function finalSound(){
+
+  const notes=[392,523,659,784];
+
+  notes.forEach((freq,i)=>{
+
+    const osc=audioCtx.createOscillator();
+
+    const gain=audioCtx.createGain();
+
+    osc.type="square";
+
+    osc.frequency.value=freq;
+
+    const t=audioCtx.currentTime+i*.045;
+
+    gain.gain.setValueAtTime(.12,t);
+
+    gain.gain.exponentialRampToValueAtTime(.001,t+.55);
+
+    osc.connect(gain);
+
+    gain.connect(audioCtx.destination);
+
+    osc.start(t);
+
+    osc.stop(t+.6);
+
+  });
+
+}
+
+function sleep(ms){
+
+  return new Promise(resolve=>setTimeout(resolve,ms));
+
+}
+
+async function play(){
+
+  if(running) return;
+
+  running=true;
+
+  start.style.display="none";
+
+  title.textContent="";
+
+  if(!audioCtx){
+
+    initAudio();
+
+  }
+
+  if(audioCtx.state==="suspended"){
+
+    await audioCtx.resume();
+
+  }
+
+  await sleep(450);
+
+  for(const char of message){
+
+    title.textContent += char;
+
+    if(char!=="\n"){
+
+      typeSound();
+
+    }
+
+    await sleep(115);
+
+  }
+
+  await sleep(250);
+
+  screen.classList.add("flash");
+
+  finalSound();
+
+  setTimeout(()=>{
+
+    screen.classList.remove("flash");
+
+  },180);
+
+  running=false;
+
+}
+
+document.body.addEventListener("click",play);
+
+document.body.addEventListener("touchend",(e)=>{
+
+  e.preventDefault();
+
+  play();
+
+},{passive:false});
+
+</script>
+
+</body>
+
+</html>
