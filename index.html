@@ -171,85 +171,90 @@ function initAudio(){
 }
 
 function typeSound(){
-  const now=audioCtx.currentTime;
+  const t=audioCtx.currentTime;
 
-  // Short, dry mechanical "type" hit: transient noise + low click.
-  const len=Math.floor(audioCtx.sampleRate*.055);
-  const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
-  const d=buf.getChannelData(0);
-  for(let i=0;i<len;i++){
-    const env=Math.exp(-i/(audioCtx.sampleRate*.010));
-    d[i]=(Math.random()*2-1)*env;
-  }
-  const noise=audioCtx.createBufferSource();
-  noise.buffer=buf;
-  const hp=audioCtx.createBiquadFilter();
-  hp.type="highpass"; hp.frequency.value=850;
-  const ng=audioCtx.createGain();
-  ng.gain.setValueAtTime(.34,now);
-  ng.gain.exponentialRampToValueAtTime(.001,now+.05);
-  noise.connect(hp); hp.connect(ng); ng.connect(audioCtx.destination);
-  noise.start(now); noise.stop(now+.055);
+  // Reference-video inspired: very short, bright, buzzy pulse centered around 3–4 kHz.
+  const osc1=audioCtx.createOscillator();
+  const osc2=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  const bp=audioCtx.createBiquadFilter();
 
-  const osc=audioCtx.createOscillator();
-  const og=audioCtx.createGain();
-  osc.type="square";
-  osc.frequency.setValueAtTime(155,now);
-  osc.frequency.exponentialRampToValueAtTime(90,now+.035);
-  og.gain.setValueAtTime(.16,now);
-  og.gain.exponentialRampToValueAtTime(.001,now+.045);
-  osc.connect(og); og.connect(audioCtx.destination);
-  osc.start(now); osc.stop(now+.05);
+  osc1.type="square";
+  osc2.type="sawtooth";
+  osc1.frequency.setValueAtTime(3230,t);
+  osc2.frequency.setValueAtTime(3820,t);
+
+  bp.type="bandpass";
+  bp.frequency.value=3450;
+  bp.Q.value=2.2;
+
+  g.gain.setValueAtTime(.001,t);
+  g.gain.linearRampToValueAtTime(.22,t+.002);
+  g.gain.exponentialRampToValueAtTime(.001,t+.042);
+
+  osc1.connect(bp);
+  osc2.connect(bp);
+  bp.connect(g);
+  g.connect(audioCtx.destination);
+
+  osc1.start(t); osc2.start(t);
+  osc1.stop(t+.045); osc2.stop(t+.045);
 }
 
 function finalSound(){
-  const now=audioCtx.currentTime;
-
-  // Original synthesized dramatic sting: brass-like chord, bass impact and decay.
+  const t=audioCtx.currentTime;
   const master=audioCtx.createGain();
-  master.gain.setValueAtTime(.72,now);
-  master.gain.exponentialRampToValueAtTime(.001,now+1.45);
-  master.connect(audioCtx.destination);
+  const comp=audioCtx.createDynamicsCompressor();
 
-  const notes=[196,261.63,329.63,392];
-  notes.forEach((freq,i)=>{
-    const osc=audioCtx.createOscillator();
-    const gain=audioCtx.createGain();
-    const filter=audioCtx.createBiquadFilter();
-    osc.type=i===0?"sawtooth":"square";
-    osc.frequency.setValueAtTime(freq,now);
-    osc.detune.value=(i-1.5)*4;
-    filter.type="lowpass";
-    filter.frequency.setValueAtTime(2600,now);
-    filter.frequency.exponentialRampToValueAtTime(650,now+1.1);
-    gain.gain.setValueAtTime(.001,now);
-    gain.gain.linearRampToValueAtTime(i===0?.23:.13,now+.018);
-    gain.gain.exponentialRampToValueAtTime(.001,now+1.25);
-    osc.connect(filter); filter.connect(gain); gain.connect(master);
-    osc.start(now); osc.stop(now+1.3);
+  master.gain.setValueAtTime(.85,t);
+  master.gain.setValueAtTime(.85,t+.18);
+  master.gain.exponentialRampToValueAtTime(.001,t+2.85);
+  master.connect(comp);
+  comp.connect(audioCtx.destination);
+
+  // Strong low/mid impact and a bright upper layer, modeled from the reference's spectrum.
+  const voices=[
+    [100,"sawtooth",.24],
+    [200,"square",.17],
+    [300,"sawtooth",.13],
+    [500,"square",.10],
+    [890,"sawtooth",.075],
+    [1755,"square",.055],
+    [2540,"sawtooth",.045]
+  ];
+
+  voices.forEach(([f,type,level],i)=>{
+    const o=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    const lp=audioCtx.createBiquadFilter();
+    o.type=type;
+    o.frequency.setValueAtTime(f,t);
+    if(i<3) o.frequency.exponentialRampToValueAtTime(f*.86,t+2.4);
+    lp.type="lowpass";
+    lp.frequency.setValueAtTime(5200,t);
+    lp.frequency.exponentialRampToValueAtTime(900,t+2.6);
+    g.gain.setValueAtTime(.001,t);
+    g.gain.linearRampToValueAtTime(level,t+.012);
+    g.gain.exponentialRampToValueAtTime(.001,t+2.75);
+    o.connect(lp); lp.connect(g); g.connect(master);
+    o.start(t); o.stop(t+2.85);
   });
 
-  // Low cinematic thump.
-  const bass=audioCtx.createOscillator();
-  const bg=audioCtx.createGain();
-  bass.type="sine";
-  bass.frequency.setValueAtTime(105,now);
-  bass.frequency.exponentialRampToValueAtTime(42,now+.32);
-  bg.gain.setValueAtTime(.55,now);
-  bg.gain.exponentialRampToValueAtTime(.001,now+.55);
-  bass.connect(bg); bg.connect(master);
-  bass.start(now); bass.stop(now+.6);
-
-  // Bright attack.
-  const len=Math.floor(audioCtx.sampleRate*.11);
-  const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+  // Noisy attack gives the final hit its sharp "snap".
+  const n=.12*audioCtx.sampleRate|0;
+  const buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate);
   const d=buf.getChannelData(0);
-  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*.022));
-  const hit=audioCtx.createBufferSource(); hit.buffer=buf;
-  const hp=audioCtx.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=1500;
-  const hg=audioCtx.createGain(); hg.gain.value=.25;
-  hit.connect(hp); hp.connect(hg); hg.connect(master);
-  hit.start(now); hit.stop(now+.11);
+  for(let i=0;i<n;i++){
+    d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*.018));
+  }
+  const noise=audioCtx.createBufferSource();
+  const hp=audioCtx.createBiquadFilter();
+  const ng=audioCtx.createGain();
+  noise.buffer=buf;
+  hp.type="highpass"; hp.frequency.value=1350;
+  ng.gain.value=.22;
+  noise.connect(hp); hp.connect(ng); ng.connect(master);
+  noise.start(t); noise.stop(t+.12);
 }
 
 function sleep(ms){
@@ -292,7 +297,7 @@ async function play(){
 
     }
 
-    await sleep(92);
+    await sleep(100);
 
   }
 
@@ -327,3 +332,5 @@ document.body.addEventListener("touchend",(e)=>{
 </body>
 
 </html>
+
+<!-- Cloudflare deploy trigger -->
